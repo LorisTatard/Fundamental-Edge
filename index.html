@@ -1113,62 +1113,57 @@ function fmpUrl(path, params) {
 
 async function fetchFMP(ticker) {
   ticker = ticker.toUpperCase();
-  const [profileRes, incomeRes, balanceRes, cashRes, metricsRes] = await Promise.all([
-    fetch(fmpUrl(`profile/${ticker}`)),
-    fetch(fmpUrl(`income-statement/${ticker}`, 'limit=2')),
-    fetch(fmpUrl(`balance-sheet-statement/${ticker}`, 'limit=1')),
-    fetch(fmpUrl(`cash-flow-statement/${ticker}`, 'limit=1')),
-    fetch(fmpUrl(`key-metrics-ttm/${ticker}`))
-  ]);
-  const [profile, income, balance, cash, metrics] = await Promise.all([
-    profileRes.json(), incomeRes.json(), balanceRes.json(), cashRes.json(), metricsRes.json()
-  ]);
-  if(!profile || !profile[0]) throw new Error('Company not found. Please check the ticker symbol.');
-  const p = profile[0];
-  const i0 = income[0] || {};
-  const i1 = income[1] || {};
-  const b = balance[0] || {};
-  const c = cash[0] || {};
-  const m = metrics[0] || {};
-  const revGrowth = i1.revenue && i1.revenue !== 0 ? (i0.revenue - i1.revenue) / Math.abs(i1.revenue) : null;
-  const netDebtEbitda = (b.totalDebt != null && b.cashAndCashEquivalents != null && i0.ebitda && i0.ebitda !== 0)
-    ? (b.totalDebt - b.cashAndCashEquivalents) / Math.abs(i0.ebitda) : null;
-  return {
-    ticker,
-    name: p.companyName,
-    sector: p.sector || '—',
-    industry: p.industry || '',
-    price: p.price,
-    mktcap: p.mktCap,
-    revenue: i0.revenue,
-    prevRevenue: i1.revenue,
-    grossMargin: i0.grossProfit && i0.revenue ? i0.grossProfit / i0.revenue : null,
-    netMargin: m.netProfitMarginTTM || (i0.netIncome && i0.revenue ? i0.netIncome / i0.revenue : null),
-    roe: m.roeTTM,
-    pe: m.peRatioTTM,
-    evebitda: m.evToEbitdaTTM,
-    currentRatio: m.currentRatioTTM,
-    fcf: c.freeCashFlow,
-    totalDebt: b.totalDebt,
-    cash: b.cashAndCashEquivalents,
-    ebitda: i0.ebitda,
-    revenueGrowth: revGrowth,
-    netDebtEbitda: netDebtEbitda
-  };
-}
-let watchlist = JSON.parse(localStorage.getItem('fe_watchlist') || '[]');
-let lastFetchedData = null;
-
-function switchTab(name) {
-  document.querySelectorAll('.tool-tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.tool-section').forEach(s => s.classList.remove('active'));
-  document.getElementById('tab-' + name).classList.add('active');
-  event.target.classList.add('active');
-}
-
-function quickSearch(ticker) {
-  document.getElementById('ticker-input').value = ticker;
-  fetchCompany();
+  try {
+    const profileRes = await fetch(fmpUrl(`profile?symbol=${ticker}`));
+    const profileData = await profileRes.json();
+    if(!profileData || !Array.isArray(profileData) || !profileData[0]) {
+      if(profileData && profileData.error) throw new Error('API Error: ' + profileData.error);
+      throw new Error('Company not found. Check the ticker (e.g. NVDA, MC.PA, AIR.PA)');
+    }
+    const [incomeRes, balanceRes, cashRes, ratiosRes] = await Promise.all([
+      fetch(fmpUrl(`income-statement?symbol=${ticker}&limit=2`)),
+      fetch(fmpUrl(`balance-sheet-statement?symbol=${ticker}&limit=1`)),
+      fetch(fmpUrl(`cash-flow-statement?symbol=${ticker}&limit=1`)),
+      fetch(fmpUrl(`ratios-ttm?symbol=${ticker}`))
+    ]);
+    const profile = profileData;
+    const [income, balance, cash, ratios] = await Promise.all([
+      incomeRes.json(), balanceRes.json(), cashRes.json(), ratiosRes.json()
+    ]);
+    const p = profile[0];
+    const i0 = Array.isArray(income) ? (income[0] || {}) : {};
+    const i1 = Array.isArray(income) ? (income[1] || {}) : {};
+    const b = Array.isArray(balance) ? (balance[0] || {}) : {};
+    const c = Array.isArray(cash) ? (cash[0] || {}) : {};
+    const r = Array.isArray(ratios) ? (ratios[0] || {}) : {};
+    const revGrowth = i1.revenue && i1.revenue !== 0 ? (i0.revenue - i1.revenue) / Math.abs(i1.revenue) : null;
+    const netDebtEbitda = (b.totalDebt != null && b.cashAndCashEquivalents != null && i0.ebitda && i0.ebitda !== 0)
+      ? (b.totalDebt - b.cashAndCashEquivalents) / Math.abs(i0.ebitda) : null;
+    return {
+      ticker,
+      name: p.companyName || ticker,
+      sector: p.sector || '—',
+      industry: p.industry || '',
+      price: p.price,
+      mktcap: p.mktCap,
+      revenue: i0.revenue,
+      prevRevenue: i1.revenue,
+      grossMargin: r.grossProfitMarginTTM || (i0.grossProfit && i0.revenue ? i0.grossProfit / i0.revenue : null),
+      netMargin: r.netProfitMarginTTM || (i0.netIncome && i0.revenue ? i0.netIncome / i0.revenue : null),
+      roe: r.returnOnEquityTTM,
+      pe: r.peRatioTTM || (p.price && i0.eps ? p.price / i0.eps : null),
+      evebitda: r.enterpriseValueMultipleTTM,
+      currentRatio: r.currentRatioTTM || (b.totalCurrentAssets && b.totalCurrentLiabilities ? b.totalCurrentAssets / b.totalCurrentLiabilities : null),
+      fcf: c.freeCashFlow,
+      totalDebt: b.totalDebt,
+      cash: b.cashAndCashEquivalents,
+      ebitda: i0.ebitda,
+      revenueGrowth: revGrowth,
+      netDebtEbitda: netDebtEbitda
+    };
+  } catch(e) {
+    throw new Error(e.message || 'Error fetching data. Please try again.');
+  }
 }
 
 async function fetchCompany() {
