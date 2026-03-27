@@ -1105,8 +1105,17 @@ footer { position: relative; z-index: 1; border-top: 1px solid var(--border-ligh
 </div>
 
 <script>
+let lastFetchedData = null;
+let watchlist = JSON.parse(localStorage.getItem('fe_watchlist') || '[]');
 function fmpUrl(endpoint) {
   return `/.netlify/functions/fmp?endpoint=${encodeURIComponent(endpoint)}`;
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tool-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tool-section').forEach(s => s.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
 }
 
 async function fetchFMP(ticker) {
