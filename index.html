@@ -1105,10 +1105,8 @@ footer { position: relative; z-index: 1; border-top: 1px solid var(--border-ligh
 </div>
 
 <script>
-function fmpUrl(path, params) {
-  let url = `/.netlify/functions/fmp?path=${encodeURIComponent(path)}`;
-  if(params) url += `&params=${encodeURIComponent(params)}`;
-  return url;
+function fmpUrl(endpoint) {
+  return `/.netlify/functions/fmp?endpoint=${encodeURIComponent(endpoint)}`;
 }
 
 async function fetchFMP(ticker) {
@@ -1490,3 +1488,4 @@ function filterSector(sector, btn) {
 </script>
 </body>
 </html>
+
