@@ -1420,7 +1420,10 @@ renderWatchlist();
 const ANALYSES_DONE = 0;
 const S1_DONE = 0, S2_DONE = 0, S3_DONE = 0;
 
-
+function quickSearch(ticker) {
+  document.getElementById('ticker-input').value = ticker;
+  fetchCompany();
+}
 function handleEmail(e) {
   e.preventDefault();
   var u = 'loris.tatard';
